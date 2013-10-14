@@ -1,10 +1,11 @@
 def splitFile(file, chunkSize):
     f = open(file, 'rb')
+    chunkSize = int(chunkSize)
     bytes = f.read()
     f.close()
     
     length = len(bytes)
-    noChunks = length/chunkSize
+    noChunks = int(length/chunkSize)
     
     if (length%chunkSize != 0): 
         noChunks += 1

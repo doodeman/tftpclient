@@ -1,54 +1,56 @@
 import socket
-import random
+import struct
+import fileUnifier
+import fileSplitter
 
 def read(serverURL, filename, port):
     sock = openConnection(serverURL, port)
     
     host = (serverURL, port)
-    string = RRQ(filename)
-    sock.sendto(string, host)
+    sock.sendto(RRQ(filename), host)
     
-    data, addr = sock.recvfrom(5000)
-    print (addr)
-    print(data)
+    chunks = []
+    while True:
+        data, addr = sock.recvfrom(5000)
+        host = (serverURL, addr[1])
+        data = data[4:]
+        chunks.append(data)
+        sock.sendto(ACK(len(chunks)), host)
+        if (len(data) < 512):
+            print("packet received, is " + str(len(data)) + " bytes long, terminating")
+            break
+        else:
+            print("packet received, is " + str(len(data)) + " bytes long, continuing")
+    
+    fileUnifier.unifyFile(chunks, filename)
     
 def write(serverURL, filename, port):
-    pass
+    sock = openConnection(serverURL, port)
+    host = (serverURL, port)
+    
+    chunks = fileSplitter.splitFile(filename,512)
+    sock.sendto(WRQ(filename), host)
+    for i, chunk in enumerate(chunks):
+        data, addr = sock.recvfrom(5000)
+        #print(data)
+        host = (serverURL, addr[1])
+        sock.sendto(DATA(i+1, chunk), host)
+        print("packet " + str(i+1) + " of " + str(len(chunks)) + " sent to server")
+    print("done")
 
 def openConnection(serverURL, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    randport = random.randrange(40000, 59999)
-    #sock.bind(('127.0.0.1', randport))
     return sock
 
 def RRQ(filename):
-    s = ""
-    s += '01 '
-    s += filename
-    s += ' 0 '
-    s += 'octet'
-    s += ' 0'
-    return s
+    return struct.pack('!h' + str(len(filename)) + 'sb5sb', 1, filename.encode('utf-8'), 0, b"octet", 0)
 
 def WRQ(filename):
-    s = ""
-    s += '02 '
-    s += filename
-    s += ' 0 '
-    s += 'octet'
-    s += ' 0'
-    return s
+    return struct.pack('!h' + str(len(filename)) + 'sb5sb', 2, filename.encode('utf-8'), 0, b"octet", 0)
 
-def DATA(filename, chunkNo, data):
-    s = ""
-    s += '03 '
-    s += str(chunkNo)
-    s += ' ' + data
-    return s
+def DATA(chunkNo, data):
+    return struct.pack('!hh' + str(len(data)) + 's', 3, chunkNo, data)
     
 def ACK(chunkNo):
-    s = ""
-    s += '04 '
-    s += chunkNo
-    return s
+    return struct.pack("!hh", 4, chunkNo)
 
