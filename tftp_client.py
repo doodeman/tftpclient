@@ -1,7 +1,9 @@
-import socket
+#!/usr/bin/env python
+# -*- coding: utf-8 -*- 
+
+import sys
 import struct
-import fileUnifier
-import fileSplitter
+import socket
 
 def read(serverURL, filename, port):
     sock = openConnection(serverURL, port)
@@ -22,13 +24,13 @@ def read(serverURL, filename, port):
         else:
             print("packet received, is " + str(len(data)) + " bytes long, continuing")
     
-    fileUnifier.unifyFile(chunks, filename)
+    unifyFile(chunks, filename)
     
 def write(serverURL, filename, port):
     sock = openConnection(serverURL, port)
     host = (serverURL, port)
     
-    chunks = fileSplitter.splitFile(filename,512)
+    chunks = splitFile(filename,512)
     sock.sendto(WRQ(filename), host)
     for i, chunk in enumerate(chunks):
         data, addr = sock.recvfrom(5000)
@@ -53,4 +55,53 @@ def DATA(chunkNo, data):
     
 def ACK(chunkNo):
     return struct.pack("!hh", 4, chunkNo)
+
+def splitFile(file, chunkSize):
+    f = open(file, 'rb')
+    chunkSize = int(chunkSize)
+    bytes = f.read()
+    f.close()
+    
+    length = len(bytes)
+    noChunks = int(length/chunkSize)
+    
+    if (length%chunkSize != 0): 
+        noChunks += 1
+    
+    chunks = []
+    for x in range(noChunks):
+        startpos = x*chunkSize
+        endpos = startpos + 512
+        chunks.append(bytes[startpos:endpos])
+    
+    return chunks
+    
+def unifyFile(chunks, outfile):
+    f = open(outfile, 'wb')
+    
+    for chunk in chunks:
+        f.write(chunk)
+        
+args = sys.argv
+del args[0]
+
+if not (2 < len(args) < 5):
+    print("Rangur fjöldi skipana.")
+    sys.exit()
+    
+serverURL = args[0]
+command = args[1]
+document = args[2]
+try:
+    port = args[3]
+except: 
+    port = 69
+
+if (command == 'lesa'):
+    read(serverURL, document, port)
+elif (command == 'skrifa'):
+    write(serverURL, document, port)
+else: 
+    print("Óþekkt skipun")
+    
 
